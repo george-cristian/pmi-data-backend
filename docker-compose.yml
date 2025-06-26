@@ -1,0 +1,104 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    env_file:
+      - .env
+    container_name: pmi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persistent data volume - data survives container deletion
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: mount initialization scripts
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - pmi_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pmi_user -d pmi_reports"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Rust web server
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    container_name: pmi_web
+    restart: unless-stopped
+    environment:
+      # Database connection
+      DATABASE_URL: ${DATABASE_URL}
+      # Server config
+      HOST: 0.0.0.0
+      PORT: 3000
+      # Development mode
+      RUST_LOG: debug
+      RUST_BACKTRACE: 1
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:ro
+      - ./Cargo.toml:/app/Cargo.toml:ro
+      - ./Cargo.lock:/app/Cargo.lock:ro
+      # Mount migrations and scripts
+      - ./migrations:/app/migrations:ro
+      - ./scripts/migrate.sh:/app/migrate.sh:ro
+      # Cache Cargo registry and build artifacts on host (speeds up rebuilds)
+      - rust_cache:/usr/local/cargo/registry
+      - rust_target:/app/target
+    networks:
+      - pmi_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Override command for development
+    command: ["cargo", "watch", "-x", "run"]
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    env_file:
+      - .env
+    container_name: pmi_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "8081:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - pmi_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  # Rust build cache volumes (significant speedup)
+  rust_cache:
+    driver: local
+  rust_target:
+    driver: local
+
+# Network for service communication
+networks:
+  pmi_network:
+    driver: bridge
