@@ -1,5 +1,5 @@
 # Development Dockerfile with hot reload
-FROM rust:1.84-slim
+FROM rust:1.88-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install cargo-watch for hot reload
 RUN cargo install cargo-watch
+RUN cargo install sqlx-cli --no-default-features --features postgres
 
 # Set working directory
 WORKDIR /app

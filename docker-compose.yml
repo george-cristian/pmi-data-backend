@@ -16,7 +16,7 @@ services:
       # Persistent data volume - data survives container deletion
       - postgres_data:/var/lib/postgresql/data
       # Optional: mount initialization scripts
-      - ./init-scripts:/docker-entrypoint-initdb.d
+      #- ./init-scripts:/docker-entrypoint-initdb.d
     networks:
       - pmi_network
     healthcheck:
