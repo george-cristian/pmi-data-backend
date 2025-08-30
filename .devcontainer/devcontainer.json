@@ -1,0 +1,30 @@
+{
+    "name": "Rust Dev Container",
+    "build": {
+        "dockerfile": "../Dockerfile-local",
+        "context": ".."
+    },
+    "forwardPorts": [3000],
+    "postCreateCommand": "cargo check",
+    "mounts": [
+        "source=/run/host-services/ssh-auth.sock,target=/run/host-services/ssh-auth.sock,type=bind",
+        "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
+    ],
+    "envFile": "../.env",
+    "remoteEnv": {
+        "SSH_AUTH_SOCK": "/run/host-services/ssh-auth.sock"
+    },
+    "runArgs": [
+        "--network=pmi-data-backend_pmi_network",
+        "--env-file=.env"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust-analyzer",
+                "serayuzgur.crates",
+                "vadimcn.vscode-lldb"
+            ]
+        }
+    }
+}
